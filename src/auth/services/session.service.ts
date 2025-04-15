@@ -65,4 +65,35 @@ export class SessionService {
     const keys = await this.redis.keys(`session:${userId}:*`);
     return keys.map(key => key.split(':')[2]);
   }
+
+  /**
+   * Armazena um valor genérico no Redis
+   * @param key Chave para o valor
+   * @param value Valor a ser armazenado
+   * @param ttl Tempo de vida em segundos
+   */
+  async storeValue(key: string, value: string, ttl?: number): Promise<void> {
+    if (ttl) {
+      await this.redis.set(key, value, 'EX', ttl);
+    } else {
+      await this.redis.set(key, value);
+    }
+  }
+
+  /**
+   * Recupera um valor genérico do Redis
+   * @param key Chave do valor
+   * @returns Valor armazenado ou null se não existir
+   */
+  async getValue(key: string): Promise<string | null> {
+    return this.redis.get(key);
+  }
+
+  /**
+   * Remove um valor genérico do Redis
+   * @param key Chave do valor a ser removido
+   */
+  async removeValue(key: string): Promise<void> {
+    await this.redis.del(key);
+  }
 } 

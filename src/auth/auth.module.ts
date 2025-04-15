@@ -14,6 +14,7 @@ import { TokenService } from './services/token.service';
 import { RedisModule } from '../redis/redis.module';
 import { EmailModule } from '../email/email.module';
 import { AuthController } from './auth.controller';
+import { MfaService } from './services/mfa.service';
 
 @Module({
   imports: [
@@ -38,8 +39,9 @@ import { AuthController } from './auth.controller';
     JwtStrategy, 
     LocalStrategy,
     GoogleStrategy,
-    LinkedInStrategy
+    LinkedInStrategy,
+    MfaService
   ],
-  exports: [AuthService],
+  exports: [AuthService, TokenService, SessionService, MfaService],
 })
 export class AuthModule {} 

@@ -43,9 +43,42 @@ export class AuthService {
   /**
    * Realiza o login do usuário e gera um token JWT
    * @param user Usuário autenticado
-   * @returns Token de acesso e informações de refresh
+   * @returns Token de acesso e informações de refresh ou necessidade de MFA
    */
   async login(user: User) {
+    // Verifica se o usuário tem MFA ativado
+    if (user.mfaEnabled) {
+      // Cria uma sessão temporária para o fluxo de MFA
+      // Esta sessão será usada para validar o token MFA
+      const sessionId = uuidv4();
+      const key = `mfa_pending:${sessionId}`;
+      
+      // Armazena o ID do usuário na sessão temporária (válida por 5 minutos)
+      await this.sessionService.storeValue(key, user.id, 300);
+      
+      // Retorna informação de que MFA é necessário
+      return {
+        requireMfa: true,
+        sessionId,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
+      };
+    }
+    
+    // Se não tem MFA, segue o fluxo normal de login
+    return this.generateTokens(user);
+  }
+
+  /**
+   * Gera tokens de acesso e refresh para o usuário
+   * @param user Usuário autenticado
+   * @returns Tokens de acesso e refresh
+   */
+  async generateTokens(user: User) {
     const payload = { 
       sub: user.id, 
       email: user.email,
@@ -82,6 +115,43 @@ export class AuthService {
   }
 
   /**
+   * Verifica uma sessão MFA pendente
+   * @param sessionId ID da sessão temporária
+   * @returns ID do usuário associado à sessão ou null
+   */
+  async checkMfaPendingSession(sessionId: string): Promise<string | null> {
+    const key = `mfa_pending:${sessionId}`;
+    return this.sessionService.getValue(key);
+  }
+
+  /**
+   * Completa o login após verificação MFA
+   * @param sessionId ID da sessão temporária
+   * @returns Tokens de acesso e refresh ou erro
+   */
+  async completeMfaLogin(sessionId: string): Promise<any> {
+    const key = `mfa_pending:${sessionId}`;
+    const userId = await this.sessionService.getValue(key);
+    
+    if (!userId) {
+      throw new UnauthorizedException('Sessão MFA inválida ou expirada');
+    }
+    
+    // Busca o usuário
+    const user = await this.userRepository.findOneBy({ id: userId });
+    
+    if (!user) {
+      throw new UnauthorizedException('Usuário não encontrado');
+    }
+    
+    // Remove a sessão temporária
+    await this.sessionService.removeValue(key);
+    
+    // Gera os tokens
+    return this.generateTokens(user);
+  }
+
+  /**
    * Atualiza o token de acesso usando um token de refresh
    * @param userId ID do usuário
    * @param refreshToken Token de refresh
@@ -101,7 +171,7 @@ export class AuthService {
     }
     
     // Gera um novo token de acesso
-    return this.login(user);
+    return this.generateTokens(user);
   }
 
   /**
