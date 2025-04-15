@@ -7,6 +7,8 @@ import { User } from '../users/entities/user.entity';
 import { AuthService } from './services/auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
+import { LinkedInStrategy } from './strategies/linkedin.strategy';
 import { SessionService } from './services/session.service';
 import { TokenService } from './services/token.service';
 import { RedisModule } from '../redis/redis.module';
@@ -29,7 +31,15 @@ import { AuthController } from './auth.controller';
     EmailModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, SessionService, TokenService, JwtStrategy, LocalStrategy],
+  providers: [
+    AuthService, 
+    SessionService, 
+    TokenService, 
+    JwtStrategy, 
+    LocalStrategy,
+    GoogleStrategy,
+    LinkedInStrategy
+  ],
   exports: [AuthService],
 })
 export class AuthModule {} 

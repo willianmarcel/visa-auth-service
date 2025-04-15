@@ -120,4 +120,65 @@ export class AuthService {
   async invalidateAllSessions(userId: string): Promise<void> {
     await this.sessionService.removeAllUserSessions(userId);
   }
+
+  /**
+   * Encontra ou cria um usuário baseado nas informações de OAuth
+   * @param userData Dados do usuário do provedor OAuth
+   * @param provider Provedor OAuth (google, linkedin)
+   * @returns Usuário encontrado ou criado
+   */
+  async findOrCreateOAuthUser(
+    userData: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      googleId?: string;
+      linkedinId?: string;
+      profilePicture?: string;
+    },
+    provider: 'google' | 'linkedin',
+  ): Promise<User> {
+    // Determina o tipo de ID baseado no provedor
+    const providerIdField = provider === 'google' ? 'googleId' : 'linkedinId';
+    const providerId = provider === 'google' ? userData.googleId : userData.linkedinId;
+
+    // Tenta encontrar o usuário pelo ID do provedor OAuth
+    let user = await this.userRepository.findOne({
+      where: { [providerIdField]: providerId },
+    });
+
+    // Se não encontrou pelo ID do provedor, tenta pelo email
+    if (!user && userData.email) {
+      user = await this.userRepository.findOne({
+        where: { email: userData.email },
+      });
+
+      // Se encontrou pelo email, atualiza com o ID do provedor
+      if (user) {
+        user[providerIdField] = providerId;
+        await this.userRepository.save(user);
+      }
+    }
+
+    // Se não encontrou por nenhum método, cria um novo usuário
+    if (!user) {
+      const randomPassword = uuidv4(); // Gera uma senha aleatória
+      const hashedPassword = await PasswordUtils.hash(randomPassword);
+
+      user = this.userRepository.create({
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        password: hashedPassword,
+        [providerIdField]: providerId,
+        profilePicture: userData.profilePicture,
+        emailVerified: true, // Como veio do OAuth, consideramos o email verificado
+        roles: ['user'], // Papel padrão para novos usuários
+      });
+
+      await this.userRepository.save(user);
+    }
+
+    return user;
+  }
 } 

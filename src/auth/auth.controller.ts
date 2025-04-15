@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, BadRequestException, Get, Req, UseGuards, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AuthService } from './services/auth.service';
 import { EmailService } from '../email/email.service';
@@ -10,6 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { PasswordUtils } from './utils/password.util';
+import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -92,5 +93,55 @@ export class AuthController {
     await this.authService.invalidateAllSessions(userId);
     
     return { message: 'Senha redefinida com sucesso' };
+  }
+
+  // Autenticação com Google
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Iniciar autenticação com Google' })
+  googleAuth() {
+    // Este endpoint inicia o processo de autenticação
+    // A lógica é tratada pelo guard do Passport
+  }
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Callback da autenticação Google' })
+  @ApiResponse({ status: 200, description: 'Autenticação com Google bem sucedida' })
+  @ApiResponse({ status: 400, description: 'Erro na autenticação' })
+  async googleAuthCallback(@Req() req, @Res() res) {
+    const user = req.user;
+    const authResult = await this.authService.login(user);
+    
+    // Redirecionar para a aplicação frontend com o token
+    const frontendUrl = this.configService.get('FRONTEND_URL');
+    const redirectUrl = `${frontendUrl}/auth/oauth-callback?access_token=${authResult.accessToken}&refresh_token=${authResult.refreshToken}`;
+    
+    return res.redirect(redirectUrl);
+  }
+
+  // Autenticação com LinkedIn
+  @Get('linkedin')
+  @UseGuards(AuthGuard('linkedin'))
+  @ApiOperation({ summary: 'Iniciar autenticação com LinkedIn' })
+  linkedinAuth() {
+    // Este endpoint inicia o processo de autenticação
+    // A lógica é tratada pelo guard do Passport
+  }
+
+  @Get('linkedin/callback')
+  @UseGuards(AuthGuard('linkedin'))
+  @ApiOperation({ summary: 'Callback da autenticação LinkedIn' })
+  @ApiResponse({ status: 200, description: 'Autenticação com LinkedIn bem sucedida' })
+  @ApiResponse({ status: 400, description: 'Erro na autenticação' })
+  async linkedinAuthCallback(@Req() req, @Res() res) {
+    const user = req.user;
+    const authResult = await this.authService.login(user);
+    
+    // Redirecionar para a aplicação frontend com o token
+    const frontendUrl = this.configService.get('FRONTEND_URL');
+    const redirectUrl = `${frontendUrl}/auth/oauth-callback?access_token=${authResult.accessToken}&refresh_token=${authResult.refreshToken}`;
+    
+    return res.redirect(redirectUrl);
   }
 } 
